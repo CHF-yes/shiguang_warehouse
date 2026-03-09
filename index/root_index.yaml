@@ -242,3 +242,9 @@ schools:
     name: "成都航空职业技术大学"
     initial: "C"
     resource_folder: "CAPU"
+
+  - id: "NEUQ"
+    name: "东北大学秦皇岛分校"
+    initial: "N"
+    resource_folder: "NEUQ"
+    
