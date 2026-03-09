@@ -1,0 +1,9 @@
+# resources/NEUQ/adapters.yaml
+adapters:
+  - adapter_id: "NEUQ_01"
+    adapter_name: "东北大学秦皇岛分校方正教务"
+    category: "BACHELOR_AND_ASSOCIATE"
+    asset_js_path: "neuq_01.js"
+    import_url: "https://ids.neuq.edu.cn/authserver/login"
+    maintainer: "CHF-yes"
+    description: "适配东北大学秦皇岛分校方正教务系统"
