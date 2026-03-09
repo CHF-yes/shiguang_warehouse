@@ -1,240 +1,242 @@
-// 东北大学秦皇岛分校 (NEUQ) 正方教务课表导入脚本
-// 适配页面：https://jwxt.neuq.edu.cn/eams/homeExt.action
+// == NEUQ (jwxt.neuq.edu.cn) 课表导入脚本 ==
+// 适用于 eams 系统「表格视图」课表页面
+// 要求：用户已登录并点击【查询】加载出课表
 
 /**
- * 解析表格视图 (Grid View)
- * 适配 NEUQ 特有结构：课程标题在 <b> 标签，周次信息内嵌在标题 font 中
+ * 等待指定元素出现在 DOM 中
  */
-function parserTable() {
-    const regexClean = /[●★○\s]/g;
-    const courseInfoList = [];
-    const $ = window.jQuery; 
-    if (!$) return courseInfoList;
+function waitForElement(selector, timeout = 15000) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(selector);
+        if (existing) return resolve(existing);
 
-    // 遍历每一天的课表单元格
-    $('#kbgrid_table_0 td.td_wrap').each((i, td) => {
-        const day = parseInt($(td).attr('id').split('-')[0]); 
-        
-        $(td).find('.timetable_con.text-left').each((idx, courseEl) => {
-            // 1. 提取课程名称 (NEUQ 标题在 <b> 标签)
-            const name = $(courseEl).find('.title b').text().replace(regexClean, '').trim();
-            
-            // 2. 提取核心信息行 (包含节次、周次、地点、教师)
-            //    结构：[节次] (周次信息) | 地点 | 教师
-            const infoRows = $(courseEl).find('p font');
-            
-            // 初始化变量
-            let sections = [];
-            let weeks = [];
-            let position = '';
-            let teacher = '';
+        const observer = new MutationObserver(() => {
+            const el = document.querySelector(selector);
+            if (el) {
+                observer.disconnect();
+                resolve(el);
+            }
+        });
 
-            infoRows.each((rowIdx, font) => {
-                const text = $(font).text().trim();
-                if (rowIdx === 0) {
-                    // 第一行：包含节次和周次标识
-                    const sectionMatch = text.match(/(\d+-\d+节)/);
-                    if (sectionMatch) {
-                        sections = parserSections(sectionMatch[1].replace('节', ''));
-                        // 提取周次信息 (例如 (4-15周) 或 (4-15,17-18周))
-                        const weekStr = text.split(/\(|\)/)[1]?.replace(/周/g, '') || '';
-                        weeks = parserWeeks(weekStr);
-                    }
-                } else if (rowIdx === 1) {
-                    // 第二行：上课地点
-                    position = text.split(/\s+/).pop() || '';
-                } else if (rowIdx === 2) {
-                    // 第三行：教师姓名
-                    teacher = text.replace(/教师\s*：/g, '').trim() || '';
+        observer.observe(document.body, { childList: true, subtree: true });
+        setTimeout(() => {
+            observer.disconnect();
+            reject(new Error(`等待元素 ${selector} 超时`));
+        }, timeout);
+    });
+}
+
+/**
+ * 解析周次字符串，如 "(4-15,17-18周)"
+ */
+function parseWeeks(weekStr) {
+    if (!weekStr) return [];
+    try {
+        // 提取括号内内容，移除“周”字
+        const match = weekStr.match(/\(([^)]+)\)/);
+        if (!match) return [];
+        let segments = match[1].replace(/周/g, '').split(/[,，]/);
+        const weeks = new Set();
+
+        for (let seg of segments) {
+            seg = seg.trim();
+            if (!seg) continue;
+            if (seg.includes('-')) {
+                const [start, end] = seg.split('-').map(Number);
+                if (!isNaN(start) && !isNaN(end)) {
+                    for (let w = start; w <= end; w++) weeks.add(w);
                 }
-            });
-
-            // 数据校验并入库
-            if (name && position && teacher && sections.length && weeks.length) {
-                const data = {
-                    name,
-                    day,
-                    weeks,
-                    teacher,
-                    position,
-                    startSection: sections[0],
-                    endSection: sections[sections.length - 1]
-                };
-                courseInfoList.push(data);
-            }
-        });
-    });
-    return courseInfoList;
-}
-
-/**
- * 解析列表视图 (List View) - 备用逻辑
- */
-function parserList() {
-    const regexClean = /[●★○\s]/g;
-    const $ = window.jQuery; 
-    if (!$) return [];
-    
-    let courseInfoList = [];
-    // 遍历周一到周日 (索引 1-7)
-    $('#kblist_table tbody').each((dayIndex, tbody) => {
-        if (dayIndex < 1 || dayIndex > 7) return;
-        
-        $(tbody).find('tr').slice(1).each((trIndex, tr) => {
-            const tds = $(tr).find('td');
-            if (tds.length === 0) return;
-
-            let name = '';
-            let fontElements = tds.last().find('p font');
-            
-            // 处理跨列情况
-            if (tds.length > 1) {
-                name = $(tds[1]).find('.title b').text().replace(regexClean, '').trim();
             } else {
-                name = $(tds[0]).find('.title b').text().replace(regexClean, '').trim();
+                const w = parseInt(seg);
+                if (!isNaN(w)) weeks.add(w);
             }
+        }
+        return Array.from(weeks).sort((a, b) => a - b);
+    } catch (e) {
+        console.warn("解析周次失败:", weekStr, e);
+        return [];
+    }
+}
 
-            // 解析基础信息
-            const weekStr = fontElements.eq(0).text().replace(/周数：|周/g, '').trim();
-            const weeks = parserWeeks(weekStr);
-            
-            const positionRaw = fontElements.eq(1).text().replace(/上课地点：/g, '').trim();
-            const position = positionRaw.split(/\s+/).pop() || '';
-            
-            const teacher = fontElements.eq(2).text().replace(/教师\s*：/g, '').trim() || '';
-            const sectionStr = tds.first().text().trim();
-            const sections = parserSections(sectionStr);
+/**
+ * 解析节次范围，如 "1-2" 或 "3"
+ */
+function parseSections(sectionStr) {
+    if (!sectionStr) return { start: 0, end: 0 };
+    try {
+        sectionStr = sectionStr.replace(/节/g, '').trim();
+        if (sectionStr.includes('-')) {
+            const [s, e] = sectionStr.split('-').map(Number);
+            if (!isNaN(s) && !isNaN(e)) return { start: s, end: e };
+        } else {
+            const n = parseInt(sectionStr);
+            if (!isNaN(n)) return { start: n, end: n };
+        }
+    } catch (e) {
+        console.warn("解析节次失败:", sectionStr, e);
+    }
+    return { start: 0, end: 0 };
+}
 
-            if (name && sections.length && weeks.length && teacher && position) {
-                const data = {
-                    name,
-                    day: dayIndex,
-                    weeks,
-                    teacher,
-                    position,
-                    startSection: sections[0],
-                    endSection: sections[sections.length - 1]
-                };
-                courseInfoList.push(data);
+/**
+ * 提取课程信息
+ */
+function extractCourseInfo(courseEl) {
+    const cleanText = (str) => str?.replace(/[●★○\s]+/g, '').trim() || '';
+
+    // 课程名称：通常在 <b> 标签内
+    let name = cleanText(courseEl.querySelector('.title b')?.innerText);
+    if (!name) {
+        // 备用：第一个非空文本节点
+        for (const node of courseEl.childNodes) {
+            if (node.nodeType === 3 && node.textContent.trim()) {
+                name = cleanText(node.textContent);
+                break;
+            }
+        }
+    }
+
+    // 所有 <p> 文本
+    const pTexts = Array.from(courseEl.querySelectorAll('p'))
+        .map(p => p.innerText.trim())
+        .filter(t => t && !/^[●★○\s]*$/.test(t));
+
+    let weekSectionStr = '';
+    let position = '';
+    let teacher = '';
+
+    for (const text of pTexts) {
+        if (text.includes('周') && (text.includes('-') || text.includes(','))) {
+            weekSectionStr = text;
+        } else if (text.includes('馆') || text.includes('楼') || text.includes('教室')) {
+            position = text;
+        } else if (text.length > 1 && !position && text.includes('(') && text.includes(')')) {
+            position = text;
+        } else if (!teacher && text.length > 1 && !text.includes('周') && !text.includes('节')) {
+            teacher = text;
+        }
+    }
+
+    // 解析节次和周次
+    const sections = parseSections(weekSectionStr);
+    const weeks = parseWeeks(weekSectionStr);
+
+    return {
+        name,
+        teacher: teacher || '未知教师',
+        position: position || '未知地点',
+        weeks,
+        startSection: sections.start,
+        endSection: sections.end
+    };
+}
+
+/**
+ * 解析整个课表
+ */
+function parseTimetable() {
+    const courses = [];
+    const table = document.getElementById('kbgrid_table_0');
+    if (!table) {
+        AndroidBridge.showToast("未找到课表表格，请确认已点击【查询】");
+        return [];
+    }
+
+    // 遍历每天的单元格（周一到周日）
+    table.querySelectorAll('td.td_wrap').forEach(td => {
+        const id = td.getAttribute('id');
+        if (!id) return;
+
+        const dayMatch = id.match(/^(\d+)-/);
+        const day = dayMatch ? parseInt(dayMatch[1]) : 0;
+        if (day < 1 || day > 7) return;
+
+        // 每个课程块
+        td.querySelectorAll('.timetable_con.text-left').forEach(courseEl => {
+            try {
+                const info = extractCourseInfo(courseEl);
+                if (info.name && info.weeks.length > 0 && info.startSection > 0) {
+                    courses.push({
+                        ...info,
+                        day
+                    });
+                    console.log("✅ 解析课程:", info.name, { day, weeks: info.weeks, section: `${info.startSection}-${info.endSection}` });
+                }
+            } catch (e) {
+                console.error("解析课程块失败:", e, courseEl);
             }
         });
     });
-    return courseInfoList;
+
+    return courses;
 }
 
 /**
- * 解析节次数组 (1-2节 -> [1,2])
+ * 保存 NEUQ 作息时间（标准 12 节）
  */
-function parserSections(str) {
-    const [start, end] = str.split('-').map(Number);
-    if (isNaN(start) || isNaN(end)) return [str]; // 兼容单节次
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+async function saveTimeSlots() {
+    const timeSlots = [
+        { number: 1, startTime: "08:00", endTime: "08:45" },
+        { number: 2, startTime: "08:55", endTime: "09:40" },
+        { number: 3, startTime: "09:50", endTime: "10:35" },
+        { number: 4, startTime: "10:45", endTime: "11:30" },
+        { number: 5, startTime: "11:40", endTime: "12:25" },
+        { number: 6, startTime: "14:30", endTime: "15:15" },
+        { number: 7, startTime: "15:25", endTime: "16:10" },
+        { number: 8, startTime: "16:20", endTime: "17:05" },
+        { number: 9, startTime: "17:15", endTime: "18:00" },
+        { number: 10, startTime: "19:00", endTime: "19:45" },
+        { number: 11, startTime: "19:55", endTime: "20:40" },
+        { number: 12, startTime: "20:50", endTime: "21:35" }
+    ];
+    await window.AndroidBridgePromise.savePresetTimeSlots(JSON.stringify(timeSlots));
 }
 
 /**
- * 解析周次 (支持 4-15周, 17周 或 4-15(单周))
+ * 保存学期配置（总周数）
  */
-function parserWeeks(str) {
-    if (!str) return [];
-    const segments = str.split(',');
-    let weeks = [];
-    const regex = /(\d+)(?:-(\d+))?\s*(\([单双]\))?/g;
-
-    for (const seg of segments) {
-        const clean = seg.replace(/周/g, '').trim();
-        let match;
-        while ((match = regex.exec(clean)) !== null) {
-            const s = parseInt(match[1]);
-            const e = match[2] ? parseInt(match[2]) : s;
-            const type = match[3] || '';
-
-            for (let i = s; i <= e; i++) {
-                if (type.includes('单') && i % 2 === 0) continue;
-                if (type.includes('双') && i % 2 === 1) continue;
-                if (!weeks.includes(i)) weeks.push(i);
-            }
-        }
-    }
-    return weeks.sort((a, b) => a - b);
+async function saveConfig() {
+    const config = { semesterTotalWeeks: 20, firstDayOfWeek: 1 };
+    await window.AndroidBridgePromise.saveCourseConfig(JSON.stringify(config));
 }
 
 /**
- * 主抓取逻辑
- */
-async function scrapeAndParseCourses() {
-    AndroidBridge.showToast("正在抓取 NEUQ 课表数据...");
-    try {
-        // 检测页面状态
-        if (!document.querySelector('#kbgrid_table_0') && !document.querySelector('#kblist_table')) {
-            await window.AndroidBridgePromise.showAlert("导入失败", "未检测到课表数据！\n请确认：1.已点击【查询】 2.页面已加载完成");
-            return null;
-        }
-
-        // 自动识别视图类型 (优先表格，其次列表)
-        let result = [];
-        if (document.querySelector('#kbgrid_table_0')) {
-            result = parserTable();
-        } else if (document.querySelector('#kblist_table')) {
-            result = parserList();
-        } else {
-            throw new Error("未找到课表主体元素");
-        }
-
-        if (result.length === 0) {
-            AndroidBridge.showToast("解析结果为空，请检查学期设置");
-            return null;
-        }
-        
-        AndroidBridge.showToast(`解析成功：共 ${result.length} 门课程`);
-        console.log("NEUQ 课表解析数据：", result);
-        return { courses: result };
-    } catch (error) {
-        AndroidBridge.showToast(`解析失败：${error.message}`);
-        console.error("NEUQ 解析错误：", error);
-        await window.AndroidBridgePromise.showAlert("解析异常", `错误详情：${error.message}\n请刷新页面重试！`, "确定");
-        return null;
-    }
-}
-
-/**
- * 保存数据
- */
-async function saveCourses(parsedCourses) {
-    try {
-        await window.AndroidBridgePromise.saveImportedCourses(JSON.stringify(parsedCourses));
-        return true;
-    } catch (e) {
-        AndroidBridge.showToast("保存失败，请检查APP权限");
-        console.error("保存错误：", e);
-        return false;
-    }
-}
-
-/**
- * 运行入口
+ * 主流程
  */
 async function runImportFlow() {
-    const tip = "使用须知：\n1. 登录 jwxt.neuq.edu.cn\n2. 进入【我的课表】\n3. 选择学年学期并点击【查询】\n4. 点击【一键导入】";
-    
-    const confirmed = await window.AndroidBridgePromise.showAlert("NEUQ 课表导入", tip, "开始导入");
-    if (!confirmed) {
-        AndroidBridge.showToast("用户取消导入");
-        return;
-    }
+    try {
+        const confirmed = await window.AndroidBridgePromise.showAlert(
+            "NEUQ 课表导入",
+            "请确保：\n1. 已登录 jwxt.neuq.edu.cn\n2. 进入【我的课表】\n3. 点击【查询】加载课表\n是否继续？",
+            "开始导入"
+        );
+        if (!confirmed) {
+            AndroidBridge.showToast("用户取消");
+            return;
+        }
 
-    // 检测 jQuery
-    if (typeof window.jQuery === 'undefined') {
-        await window.AndroidBridgePromise.showAlert("依赖缺失", "当前页面未加载 jQuery，请尝试刷新页面", "确定");
-        return;
-    }
+        // 等待课表加载
+        AndroidBridge.showToast("等待课表加载...");
+        await waitForElement('#kbgrid_table_0');
 
-    const data = await scrapeAndParseCourses();
-    if (!data) return;
+        // 解析课程
+        const courses = parseTimetable();
+        if (courses.length === 0) {
+            AndroidBridge.showToast("未解析到任何课程，请检查课表是否显示");
+            return;
+        }
 
-    const success = await saveCourses(data.courses);
-    if (success) {
-        AndroidBridge.showToast(`🎉 导入成功！共 ${data.courses.length} 门课程`);
+        // 保存数据
+        await saveConfig();
+        await saveTimeSlots();
+        await window.AndroidBridgePromise.saveImportedCourses(JSON.stringify(courses));
+
+        AndroidBridge.showToast(`🎉 导入成功！共 ${courses.length} 门课程`);
         AndroidBridge.notifyTaskCompletion();
+
+    } catch (error) {
+        console.error("导入失败:", error);
+        AndroidBridge.showToast("导入失败: " + (error.message || error));
     }
 }
 
