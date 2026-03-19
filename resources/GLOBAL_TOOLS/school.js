@@ -1,424 +1,202 @@
-// 文件: school.js
-
-// 1. 显示一个公告信息弹窗
-async function demoAlert() {
-    try {
-        console.log("即将显示公告弹窗...");
-        const confirmed = await window.AndroidBridgePromise.showAlert(
-            "重要通知",
-            "这是一个弹窗示例。",
-            "好的"
-        );
-        if (confirmed) {
-            console.log("用户点击了确认按钮。Alert Promise Resolved: " + confirmed);
-            AndroidBridge.showToast("Alert：用户点击了确认！");
-            return true; // 成功时返回 true
-        } else {
-            console.log("用户点击了取消按钮或关闭了弹窗。Alert Promise Resolved: " + confirmed);
-            AndroidBridge.showToast("Alert：用户取消了！");
-            return false; // 用户取消时返回 false
-        }
-    } catch (error) {
-        console.error("显示公告弹窗时发生错误:", error);
-        AndroidBridge.showToast("Alert：显示弹窗出错！" + error.message);
-        return false; // 出现错误时也返回 false
-    }
-}
-
-// 2. 显示带输入框的弹窗，并进行简单验证
-function validateName(name) {
-    if (name === null || name.trim().length === 0) {
-        return "输入不能为空！";
-    }
-    if (name.length < 2) {
-        return "姓名至少需要2个字符！";
-    }
-    return false;
-}
-
-async function demoPrompt() {
-    try {
-        console.log("即将显示输入框弹窗...");
-        const name = await window.AndroidBridgePromise.showPrompt(
-            "输入你的姓名",
-            "请输入至少2个字符",
-            "测试用户",
-            "validateName"
-        );
-        if (name !== null) {
-            console.log("用户输入的姓名是: " + name);
-            AndroidBridge.showToast("欢迎你，" + name + "！");
-            return true; // 成功时返回 true
-        } else {
-            console.log("用户取消了输入。");
-            AndroidBridge.showToast("Prompt：用户取消了输入！");
-            return false; // 用户取消时返回 false
-        }
-    } catch (error) {
-        console.error("显示输入框弹窗时发生错误:", error);
-        AndroidBridge.showToast("Prompt：显示输入框出错！" + error.message);
-        return false; // 出现错误时也返回 false
-    }
-}
-
-// 3. 显示一个单选列表弹窗
-async function demoSingleSelection() {
-    const fruits = ["苹果", "香蕉", "橙子", "葡萄", "西瓜", "芒果"];
-    try {
-        console.log("即将显示单选列表弹窗...");
-        const selectedIndex = await window.AndroidBridgePromise.showSingleSelection(
-            "选择你喜欢的水果",
-            JSON.stringify(fruits),
-            2
-        );
-        if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex < fruits.length) {
-            console.log("用户选择了: " + fruits[selectedIndex] + " (索引: " + selectedIndex + ")");
-            AndroidBridge.showToast("你选择了 " + fruits[selectedIndex]);
-            return true; // 成功时返回 true
-        } else {
-            console.log("用户取消了选择。");
-            AndroidBridge.showToast("Single Selection：用户取消了选择！");
-            return false; // 用户取消时返回 false
-        }
-    } catch (error) {
-        console.error("显示单选列表弹窗时发生错误:", error);
-        AndroidBridge.showToast("Single Selection：显示列表出错！" + error.message);
-        return false; // 出现错误时也返回 false
-    }
-}
-
-// 4. 导入课程数据
-async function demoSaveCourses() {
-    console.log("正在准备测试课程数据...");
-    const testCourses = [
-    {
-        "name": "高等数学",
-        "teacher": "张教授",
-        "position": "教101",
-        "day": 1,
-        "startSection": 1,
-        "endSection": 2,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "测试自定义课程1",
-        "teacher": "测试老师1",
-        "position": "测试教室1",
-        "day": 1,
-        "isCustomTime": true,
-        "customStartTime": "08:00",
-        "customEndTime": "09:00",
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "测试自定义课程2",
-        "teacher": "测试老师2",
-        "position": "测试教室2",
-        "day": 3,
-        "isCustomTime": true,
-        "customStartTime": "06:00",
-        "customEndTime": "12:00",
-        "weeks": [3, 5, 7, 9, 11, 13, 15]
-    },
-    {
-        "name": "大学英语",
-        "teacher": "李老师",
-        "position": "文史楼203",
-        "day": 1,
-        "startSection": 2,
-        "endSection": 4,
-        "weeks": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-    },
-    {
-        "name": "数据结构",
-        "teacher": "王副教授",
-        "position": "信息楼B301",
-        "day": 7,
-        "startSection": 2,
-        "endSection": 2,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "数据结构",
-        "teacher": "王副教授",
-        "position": "信息楼B301",
-        "day": 7,
-        "startSection": 3,
-        "endSection": 3,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "数据结构",
-        "teacher": "王副教授",
-        "position": "信息楼B301",
-        "day": 7,
-        "startSection": 4,
-        "endSection": 4,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "数据结构",
-        "teacher": "王副教授",
-        "position": "信息楼B301",
-        "day": 7,
-        "startSection": 5,
-        "endSection": 5,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "数据结构",
-        "teacher": "王副教授",
-        "position": "信息楼B301",
-        "day": 7,
-        "startSection": 6,
-        "endSection": 6,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "计算机组成原理",
-        "teacher": "赵教授",
-        "position": "实验楼401",
-        "day": 4,
-        "startSection": 4,
-        "endSection": 4,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "操作系统",
-        "teacher": "钱副教授",
-        "position": "信息楼C205",
-        "day": 5,
-        "startSection": 5,
-        "endSection": 5,
-        "weeks": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-    },
-    {
-        "name": "计算机网络",
-        "teacher": "孙教授",
-        "position": "信息楼D103",
-        "day": 6,
-        "startSection": 6,
-        "endSection": 6,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "软件工程",
-        "teacher": "周副教授",
-        "position": "创新楼301",
-        "day": 7,
-        "startSection": 7,
-        "endSection": 7,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "数据库原理",
-        "teacher": "吴教授",
-        "position": "信息楼E201",
-        "day": 1,
-        "startSection": 8,
-        "endSection": 8,
-        "weeks": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-    },
-    {
-        "name": "人工智能",
-        "teacher": "郑副教授",
-        "position": "智能楼101",
-        "day": 2,
-        "startSection": 9,
-        "endSection": 9,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "机器学习",
-        "teacher": "冯教授",
-        "position": "智能楼203",
-        "day": 3,
-        "startSection": 10,
-        "endSection": 10,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "编译原理",
-        "teacher": "陈副教授",
-        "position": "信息楼F105",
-        "day": 4,
-        "startSection": 11,
-        "endSection": 11,
-        "weeks": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-    },
-    {
-        "name": "计算机图形学",
-        "teacher": "褚教授",
-        "position": "图形楼301",
-        "day": 5,
-        "startSection": 12,
-        "endSection": 12,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "网络安全",
-        "teacher": "卫副教授",
-        "position": "安全楼201",
-        "day": 6,
-        "startSection": 13,
-        "endSection": 13,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    },
-    {
-        "name": "分布式系统",
-        "teacher": "蒋教授",
-        "position": "云楼101",
-        "day": 7,
-        "startSection": 14,
-        "endSection": 14,
-        "weeks": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-    },
-    {
-        "name": "大数据技术",
-        "teacher": "沈副教授",
-        "position": "数据楼301",
-        "day": 1,
-        "startSection": 15,
-        "endSection": 15,
-        "weeks": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
-    },
-    {
-        "name": "物联网技术",
-        "teacher": "韩教授",
-        "position": "物联楼201",
-        "day": 2,
-        "startSection": 16,
-        "endSection": 16,
-        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    }
-    ];
-
-    try {
-        console.log("正在尝试导入课程...");
-        const result = await window.AndroidBridgePromise.saveImportedCourses(JSON.stringify(testCourses));
-        if (result === true) {
-            console.log("课程导入成功！");
-            AndroidBridge.showToast("测试课程导入成功！");
-        } else {
-            console.log("课程导入未成功，结果：" + result);
-            AndroidBridge.showToast("测试课程导入失败，请查看日志。");
-        }
-    } catch (error) {
-        console.error("导入课程时发生错误:", error);
-        AndroidBridge.showToast("导入课程失败: " + error.message);
-    }
-}
-
-// 5. 导入预设时间段
-async function importPresetTimeSlots() {
-    console.log("正在准备预设时间段数据...");
-    const presetTimeSlots = [
-        { "number": 1, "startTime": "08:00", "endTime": "08:01" },
-        { "number": 2, "startTime": "09:00", "endTime": "09:01" },
-        { "number": 3, "startTime": "10:00", "endTime": "10:01" },
-        { "number": 4, "startTime": "11:00", "endTime": "11:01" },
-        { "number": 5, "startTime": "12:00", "endTime": "12:01" },
-        { "number": 6, "startTime": "13:00", "endTime": "13:01" },
-        { "number": 7, "startTime": "14:00", "endTime": "14:01" },
-        { "number": 8, "startTime": "15:00", "endTime": "15:01" },
-        { "number": 9, "startTime": "16:00", "endTime": "16:01" },
-        { "number": 10, "startTime": "17:00", "endTime": "17:01" },
-        { "number": 11, "startTime": "18:00", "endTime": "18:01" },
-        { "number": 12, "startTime": "19:00", "endTime": "19:01" },
-        { "number": 13, "startTime": "20:00", "endTime": "20:01" },
-        { "number": 14, "startTime": "21:00", "endTime": "21:01" },
-        { "number": 15, "startTime": "22:00", "endTime": "22:01" },
-        { "number": 16, "startTime": "23:00", "endTime": "23:01" }
-    ];
-
-    try {
-        console.log("正在尝试导入预设时间段...");
-        const result = await window.AndroidBridgePromise.savePresetTimeSlots(JSON.stringify(presetTimeSlots));
-        if (result === true) {
-            console.log("预设时间段导入成功！");
-            window.AndroidBridge.showToast("测试时间段导入成功！");
-        } else {
-            console.log("预设时间段导入未成功，结果：" + result);
-            window.AndroidBridge.showToast("测试时间段导入失败，请查看日志。");
-        }
-    } catch (error) {
-        console.error("导入时间段时发生错误:", error);
-        window.AndroidBridge.showToast("导入时间段失败: " + error.message);
-    }
-}
-
-// 6. 导入课表配置
-async function demoSaveConfig() {
-    console.log("正在准备配置数据...");
-    // 注意：只传入要修改的字段，其他字段（如 semesterTotalWeeks）会使用 Kotlin 模型中的默认值
-    const courseConfigData = {
-        "semesterStartDate": "2025-09-01",
-        "semesterTotalWeeks": 18,
-        "defaultClassDuration": 50,
-        "defaultBreakDuration": 5,
-        "firstDayOfWeek": 7
-    };
-
-    try {
-        console.log("正在尝试导入课表配置...");
-        const configJsonString = JSON.stringify(courseConfigData);
-
-        const result = await window.AndroidBridgePromise.saveCourseConfig(configJsonString);
-
-        if (result === true) {
-            console.log("课表配置导入成功！");
-            AndroidBridge.showToast("测试配置导入成功！开学日期: 2025-09-01");
-        } else {
-            console.log("课表配置导入未成功，结果：" + result);
-            AndroidBridge.showToast("测试配置导入失败，请查看日志。");
-        }
-    } catch (error) {
-        console.error("导入配置时发生错误:", error);
-        AndroidBridge.showToast("导入配置失败: " + error.message);
-    }
-}
-
-
-AndroidBridge.showToast("这是一个来自 JS 的 Toast 消息，会很快消失！");
-
 /**
- * 编排这些异步操作，并在用户取消时停止后续执行。
+ * 拾光课表 - 东北大学秦皇岛分校 (NEUQ) 正方教务系统适配器
+ * 适配网址: jwxt.neuq.edu.cn
+ * 视图类型: Grid (表格视图)
+ * 解析器入口: parseNEUQGrid
  */
-async function runAllDemosSequentially() {
-    AndroidBridge.showToast("所有演示将按顺序开始...");
 
-    // 1. 运行第一个演示：Alert
-    const alertResult = await demoAlert();
-    if (!alertResult) {
-        console.log("用户取消了 Alert 演示，停止后续执行。");
-        return; // 用户取消，立即退出函数
+(function(window) {
+    'use strict';
+
+    /**
+     * 解析节次
+     * @param {string} str - 节次字符串，如 "1-2"
+     * @returns {number[]} 节次数组
+     */
+    function parserSections(str) {
+        try {
+            const [start, end] = str.replace(/节/g, "").split("-").map(Number);
+            if (isNaN(start) || isNaN(end) || start > end) return [];
+            return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+        } catch (e) {
+            return [];
+        }
     }
 
-    // 2. 运行第二个演示：Prompt
-    const promptResult = await demoPrompt();
-    if (!promptResult) {
-        console.log("用户取消了 Prompt 演示，停止后续执行。");
-        return; // 用户取消，立即退出函数
+    /**
+     * 解析周次
+     * 支持格式: "1-16周"、"3-18"、"单周(1-15)"、"双周(2-16)"
+     * @param {string} str - 周次描述字符串
+     * @returns {number[]} 去重并排序后的周次数组
+     */
+    function parserWeeks(str) {
+        const weeks = [];
+        if (!str || typeof str !== 'string') return weeks;
+
+        // 清理字符串，移除所有中文和括号，只保留数字、- 和 单双标记
+        const cleanStr = str.replace(/[周()（）]/g, "").trim();
+        const segments = cleanStr.split(/[,，]/);
+        const segmentRegex = /(\d+)(?:-(\d+))?\s*(单|双)?/;
+
+        for (const seg of segments) {
+            const match = seg.match(segmentRegex);
+            if (!match) continue;
+
+            const start = parseInt(match[1]);
+            const end = match[2] ? parseInt(match[2]) : start;
+            const type = match[3] || '';
+
+            // 边界保护
+            if (isNaN(start) || isNaN(end) || start > end || start < 1 || end > 30) continue;
+
+            for (let i = start; i <= end; i++) {
+                // 单双周过滤
+                if (type === '单' && i % 2 === 0) continue;
+                if (type === '双' && i % 2 === 1) continue;
+                // 去重
+                if (!weeks.includes(i)) weeks.push(i);
+            }
+        }
+
+        return weeks.sort((a, b) => a - b);
     }
 
-    // 3. 运行第三个演示：SingleSelection
-    const selectionResult = await demoSingleSelection();
-    if (!selectionResult) {
-        console.log("用户取消了 Single Selection 演示，停止后续执行。");
-        return; // 用户取消，立即退出函数
+    /**
+     * 合并连续节次的课程
+     * NEUQ的表格布局是单节td，需要合并连堂课
+     * @param {Array} courseList - 原始课程列表
+     * @returns {Array} 合并后的课程列表
+     */
+    function mergeContinuousSections(courseList) {
+        if (!Array.isArray(courseList) || courseList.length === 0) return [];
+
+        // 先按星期和开始节次排序
+        const sortedList = [...courseList].sort((a, b) => {
+            if (a.day !== b.day) return a.day - b.day;
+            return a.startSection - b.startSection;
+        });
+
+        const mergedList = [sortedList[0]];
+
+        for (let i = 1; i < sortedList.length; i++) {
+            const lastCourse = mergedList[mergedList.length - 1];
+            const currentCourse = sortedList[i];
+
+            // 判定条件：同天、同名、同老师、同周次、且节次连续
+            const isContinuous = (
+                lastCourse.day === currentCourse.day &&
+                lastCourse.name === currentCourse.name &&
+                lastCourse.teacher === currentCourse.teacher &&
+                JSON.stringify(lastCourse.weeks) === JSON.stringify(currentCourse.weeks) &&
+                lastCourse.endSection + 1 === currentCourse.startSection
+            );
+
+            if (isContinuous) {
+                // 合并节次
+                lastCourse.endSection = currentCourse.endSection;
+            } else {
+                // 新增课程
+                mergedList.push(currentCourse);
+            }
+        }
+
+        return mergedList;
     }
 
-    console.log("所有弹窗演示已完成。");
-    AndroidBridge.showToast("所有弹窗演示已完成！");
+    /**
+     * NEUQ 表格视图核心解析器
+     * 这是框架调用的入口函数
+     * @returns {Array} 标准课程信息数组
+     */
+    function parseNEUQGrid() {
+        const courseInfoList = [];
+        const $ = window.jQuery;
 
-    // 以下是数据导入，与用户交互无关，可以继续
-    await demoSaveCourses();
-    await importPresetTimeSlots();
-    await demoSaveConfig();
+        // 环境检查
+        if (typeof $ === 'undefined') {
+            console.error('[NEUQ Parser] jQuery 未加载，解析失败');
+            return courseInfoList;
+        }
 
-    // 发送最终的生命周期完成信号
-    AndroidBridge.notifyTaskCompletion();
-}
+        // 检查核心DOM是否存在
+        const $mainTable = $('#mainTable');
+        if (!$mainTable.length) {
+            console.error('[NEUQ Parser] 未找到课表容器 #mainTable');
+            return courseInfoList;
+        }
 
-// 启动所有演示
-runAllDemosSequentially();
+        // 遍历所有课程单元格
+        $mainTable.find('td.td_wrap').each((_, td) => {
+            const $td = $(td);
+            const cellId = $td.attr('id');
+            const cellText = $td.text().trim();
+
+            // 过滤空单元格和无ID单元格
+            if (!cellId || !cellText) return;
+
+            // --- 1. 解析 星期(day) 和 节次(section) ---
+            // NEUQ的TD ID格式为: 1_1 (星期一, 第一节), 3_5 (星期三, 第五节)
+            const idParts = cellId.split('_');
+            if (idParts.length !== 2) return;
+
+            const day = parseInt(idParts[0]);
+            const currentSection = parseInt(idParts[1]);
+
+            // 数据合法性校验
+            if (isNaN(day) || isNaN(currentSection) || day < 1 || day > 7 || currentSection < 1) {
+                return;
+            }
+
+            // --- 2. 解析 课程详情 ---
+            // NEUQ 标准格式: 人工智能导论(30301130702) (李王霞); (1-16周, 4-15,工学馆311(学校本部))
+            // 捕获组: 1-课程名, 2-教师, 3-周次信息, 4-教室信息
+            const courseRegex = /([^(]+)\(\d+\)\s*\(([^)]+)\);\s*\(([^,]+),\s*([^)]+)\)/;
+            const match = cellText.match(courseRegex);
+
+            if (!match) {
+                // 兼容可能的极简格式（部分学校可能有变体）
+                console.warn(`[NEUQ Parser] 无法解析单元格内容: ${cellText}`);
+                return;
+            }
+
+            const rawName = match[1] || '';
+            const teacher = (match[2] || '').trim();
+            const weekStr = (match[3] || '').trim();
+            const rawPosition = (match[4] || '').trim();
+
+            // --- 3. 清洗数据 ---
+            // 移除课程名中的特殊符号 (●★○)
+            const name = rawName.replace(/[●★○]/g, '').trim();
+            // 解析周次
+            const weeks = parserWeeks(weekStr);
+            // 清理教室名称（移除 "(学校本部)" 等后缀）
+            const position = rawPosition.replace(/\(.*\)/, '').trim().split(/\s+/).pop() || rawPosition;
+
+            // --- 4. 最终校验并入库 ---
+            if (name && teacher && weeks.length > 0 && position) {
+                courseInfoList.push({
+                    name: name,
+                    day: day,
+                    weeks: weeks,
+                    teacher: teacher,
+                    position: position,
+                    startSection: currentSection,
+                    endSection: currentSection // 先默认单节，后续合并
+                });
+            }
+        });
+
+        // --- 5. 合并连堂课 ---
+        const finalCourses = mergeContinuousSections(courseInfoList);
+        console.log(`[NEUQ Parser] 解析完成，原始课程${courseInfoList.length}节，合并后${finalCourses.length}门`);
+        
+        return finalCourses;
+    }
+
+    // --- 框架导出接口 ---
+    // 将解析器挂载到 window，供拾光课表 Native 层调用
+    window.__SHIGUANG_PARSER__ = window.__SHIGUANG_PARSER__ || {};
+    // 注册解析器，与 adapters.yaml 中的 parser 字段对应
+    window.__SHIGUANG_PARSER__.parseNEUQGrid = parseNEUQGrid;
+
+})(window);
